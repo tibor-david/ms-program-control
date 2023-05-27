@@ -27,13 +27,17 @@ class SlotCounter(tk.Frame):
         if count < 19:
             count += 1
             self.change_value(str(count))
+        else:
+            self.change_value("0")
 
     def _decrement_count(self):
         count = int(self.counter_label["text"])
         if count  > 0:
             count -= 1
             self.change_value(str(count))
-
+        else:
+            self.change_value("19")
+            
     def _resource_path(self, relative_path):
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
 
