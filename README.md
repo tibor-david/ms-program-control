@@ -36,6 +36,6 @@ This interface contains 3 buttons: a "Stop" button, a "Start" button, and an "Up
 ### The Terminal
 Under the program management buttons, there is a terminal where program messages¹ and errors are displayed.
 
-¹CAUTION: For a reason I cannot determine, all programs downloaded from this graphical interface that contain string prints do not appear, only those in integer or float work.. If you have a solution, please open a pull request.
+¹CAUTION: For a reason I cannot determine, all programs downloaded from this graphical interface that contain string prints do not appear, only those in integer or float work. If you have a solution, please open a pull request.
 
 Json-rpc code modified from https://github.com/nutki/spike-tools
