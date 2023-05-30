@@ -90,7 +90,7 @@ class Terminal(tk.Frame):
         self.upload_btn.place(x=205, y=5)
         self.upload_cntr.place(x=400, y=5, width=55, height=50)
         self.file_selction_btn.place(x=265, y=5, width=125, height=25)
-        self.status_file_lbl.place(width=125, height=25, x=260, y=30)
+        self.status_file_lbl.place(x=265, y=30, width=125, height=25)
 
     def _resize_widgets(self, event):
         window_width = self.master.winfo_width()
