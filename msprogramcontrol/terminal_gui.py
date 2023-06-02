@@ -50,11 +50,10 @@ class SlotCounter(tk.Frame):
 
 class Terminal(tk.Frame):
 
-    def __init__(self, master=None, functions=(None, None, None)):
+    def __init__(self, master=None, play=None, stop=None, upload=None):
         super().__init__(master)
 
         self.upload_file = None
-        self.functions = functions
         self.master = master
 
         self.terminal = tk.Text(self)
@@ -65,15 +64,17 @@ class Terminal(tk.Frame):
         self.upload_img = tk.PhotoImage(file=self._resource_path("assets/upload.png"))
         self.line_img = tk.PhotoImage(file=self._resource_path("assets/separation_line.png"))
 
-        self.play_btn = tk.Button(master=self, image=self.play_img, border=0, width=50, height=50, command=functions[0])
-        self.stop_btn = tk.Button(self, image=self.stop_img, border=0, width=50, height=50, command=functions[1])
+        self.play_btn = tk.Button(master=self, image=self.play_img, border=0, width=50, height=50, command=play)
+        self.stop_btn = tk.Button(self, image=self.stop_img, border=0, width=50, height=50, command=stop)
         self.prog_cntr = SlotCounter(self)
         self.line_lbl = tk.Label(self, image=self.line_img, border=0, width=10, height=50)
 
-        self.upload_btn = tk.Button(self, image=self.upload_img, border=0, width=50, height=50, command=functions[2])
+        self.upload_btn = tk.Button(self, image=self.upload_img, border=0, width=50, height=50, command=upload)
         self.file_selction_btn = tk.Button(text="Choose a file", command=self._choose_file)
         self.status_file_lbl = tk.Label(text="No file chosen")
         self.upload_cntr = SlotCounter(self) 
+
+        self.hub_status = tk.Label(self)
 
         self.terminal.configure(state="disabled", yscrollcommand=self.scrollbar.set)
         self.terminal.tag_configure("normal", foreground="black")
@@ -90,19 +91,21 @@ class Terminal(tk.Frame):
         self.upload_btn.place(x=205, y=5)
         self.upload_cntr.place(x=400, y=5, width=55, height=50)
         self.file_selction_btn.place(x=265, y=5, width=125, height=25)
-        self.status_file_lbl.place(x=265, y=30, width=125, height=25)
-
+        self.status_file_lbl.place(width=125, height=25, x=265, y=30)
+        
     def _resize_widgets(self, event):
         window_width = self.master.winfo_width()
         window_height = self.master.winfo_height()
 
         scrollbar_x = window_width-16
         terminal_width = window_width-16
-        widgets_height = window_height-60
+        widgets_height = window_height-80
 
         self.terminal.place(width=terminal_width, height=widgets_height, x=0, y=60)
         self.scrollbar.place(width=16, height=widgets_height, x=scrollbar_x, y=60)
 
+        self.hub_status.place(x=0, y=window_height-20)
+            
     def _choose_file(self):
         file = tkf.askopenfile(filetypes=[("Python file", "*.py")])
         if file is not None:
