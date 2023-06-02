@@ -24,7 +24,7 @@ Usage
 -----
 
 ### Launching the Graphical Interface
-To use this module, write the following in a terminal: `python3 -m msprogramcontrol`(or `python` on Windows), and it will launch the graphical interface. If you want to specify a port to connect to, write `python3 -m msprogramcontrol -p <hub port>`(or `python` on Windows).
+To use this module, write the following in a terminal: `python3 -m msprogramcontrol`(or `python` on Windows), and it will launch the graphical interface.
 
 ### Using the Module
 This interface contains 3 buttons: a "Stop" button, a "Start" button, and an "Upload" button.
