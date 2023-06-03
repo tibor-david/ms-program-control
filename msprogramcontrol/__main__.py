@@ -43,7 +43,7 @@ class App:
                 if device.vid == 0x0694 and device.pid in [0x0008, 0x0010]:
                     self.terminal.hub_status["text"] = f"Hub found at {device.name}"
 
-                    self.rpc = JSONRPC(port)
+                    self.rpc = JSONRPC(device.name)
                     threading.Thread(target=self.receive_hub_output, daemon=True).start()
                     found = True
             time.sleep(0.5)
