@@ -7,15 +7,14 @@ class SlotCounter(tk.Frame):
 
     def __init__(self, master):
         super().__init__(master)
-        self.pack_propagate(False)
 
         self.left_arrow_img = tk.PhotoImage(file=self._resource_path("assets/left_arrow.png"))
         self.right_arrow_img = tk.PhotoImage(file=self._resource_path("assets/right_arrow.png"))
 
-        self.left_arrow_btn = tk.Button(self, image=self.left_arrow_img, border=0, command=self._decrement_count)
-        self.right_arrow_btn = tk.Button(self, image=self.right_arrow_img, border=0, command=self._increment_count)
+        self.left_arrow_btn = tk.Button(self, image=self.left_arrow_img, bd=0, command=self._decrement_count)
+        self.right_arrow_btn = tk.Button(self, image=self.right_arrow_img, bd=0, command=self._increment_count)
         
-        self.counter_label = tk.Label(self, text="0", font=("TkDefaultFont", 20, "bold"))
+        self.counter_label = tk.Label(self, text="0", font=("TkDefaultFont", 20, "bold"), width=2)
 
         self.left_arrow_btn.pack(side="left")
         self.right_arrow_btn.pack(side="right")
@@ -48,64 +47,105 @@ class SlotCounter(tk.Frame):
         self.counter_label.configure(text=value)
 
 
-class Terminal(tk.Frame):
+class Battery(tk.Frame):
 
-    def __init__(self, master=None, play=None, stop=None, upload=None):
+    def __init__(self, master):
         super().__init__(master)
+        
+        self.battery_border_img = tk.PhotoImage(file=self._resource_path("assets/battery.png"))
+
+        self.battery_cnvs = tk.Canvas(self, width=30, height=15, bd=0, highlightthickness=0)
+        self.battery_percent_lbl = tk.Label(self, text="N/A", bd=0)
+
+        self.battery_bar = self.battery_cnvs.create_rectangle(2, 2, 0, 12, state="hidden")
+        self.battery_border = self.battery_cnvs.create_image(0, 0, image=self.battery_border_img, anchor="nw")
+
+        self.battery_cnvs.pack(side="left")
+        self.battery_percent_lbl.pack(side="right")
+
+    def set_percent(self, percent:int):
+        if 0 <= percent <= 100:
+            if percent != 0:
+                size = percent*24/100
+
+                if percent <=20 : color = "red"
+                elif 20 < percent <= 40: color = "orange"
+                elif 40 < percent <= 100: color = "green"
+
+                self.battery_cnvs.itemconfigure(self.battery_bar, state="normal", fill=color, outline=color)
+                self.battery_cnvs.coords(self.battery_bar, 2, 2, size, 12)
+                self.battery_percent_lbl.configure(text=str(percent)+"%")
+            else:
+                self.battery_cnvs.itemconfigure(self.battery_bar, state="hidden")
+                self.battery_percent_lbl.configure(text="0%")
+
+    def _resource_path(self, relative_path):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+
+
+class Terminal(tk.Tk):
+
+    def __init__(self, play=None, stop=None, upload=None):
+        super().__init__()
 
         self.upload_file = None
-        self.master = master
 
-        self.terminal = tk.Text(self)
-        self.scrollbar = tk.Scrollbar(self)
+        self.title("Program control for Lego Robot Inventor/SPIKE Prime")
+        self.geometry("1000x500")
+        self.minsize(600, 300)
 
+        # Frames
+        self.terminal_frm = tk.Frame()
+        self.terminal_frm.pack_propagate(False)
+
+        self.control_btns_frm = tk.Frame()
+
+        # Terminal frame
+        self.terminal_scrllbr = tk.Scrollbar(self.terminal_frm)
+        self.terminal_txt = tk.Text(self.terminal_frm)
+
+        self.terminal_txt.configure(yscrollcommand=self.terminal_scrllbr.set, state="disabled")
+        self.terminal_txt.tag_configure("normal", foreground="black")
+        self.terminal_txt.tag_configure("error", foreground="red")
+
+        self.terminal_scrllbr.configure(command=self.terminal_txt.yview)
+        
+        self.terminal_scrllbr.pack(side="right", fill="y")
+        self.terminal_txt.pack(side = "left", fill="both", expand=True)
+        
+        # Program buttons frame
         self.play_img = tk.PhotoImage(file=self._resource_path("assets/play.png"))
         self.stop_img = tk.PhotoImage(file=self._resource_path("assets/stop.png"))
         self.upload_img = tk.PhotoImage(file=self._resource_path("assets/upload.png"))
         self.line_img = tk.PhotoImage(file=self._resource_path("assets/separation_line.png"))
 
-        self.play_btn = tk.Button(master=self, image=self.play_img, border=0, width=50, height=50, command=play)
-        self.stop_btn = tk.Button(self, image=self.stop_img, border=0, width=50, height=50, command=stop)
-        self.prog_cntr = SlotCounter(self)
-        self.line_lbl = tk.Label(self, image=self.line_img, border=0, width=10, height=50)
+        self.play_btn = tk.Button(self.control_btns_frm, image=self.play_img, bd=0, command=play)
+        self.stop_btn = tk.Button(self.control_btns_frm, image=self.stop_img, bd=0, command=stop)
+        self.prog_cntr = SlotCounter(self.control_btns_frm)
+        self.line_lbl = tk.Label(self.control_btns_frm, image=self.line_img, bd=0)
 
-        self.upload_btn = tk.Button(self, image=self.upload_img, border=0, width=50, height=50, command=upload)
-        self.file_selction_btn = tk.Button(text="Choose a file", command=self._choose_file)
-        self.status_file_lbl = tk.Label(text="No file chosen")
-        self.upload_cntr = SlotCounter(self) 
+        self.upload_btn = tk.Button(self.control_btns_frm, image=self.upload_img, bd=0, command=upload)
 
-        self.hub_status = tk.Label(self)
+        self.file_selction_frm = tk.Frame(self.control_btns_frm)
+        self.file_selction_btn = tk.Button(self.file_selction_frm ,text="Choose a file", command=self._choose_file, width=18)
+        self.status_file_lbl = tk.Label(self.file_selction_frm ,text="No file chosen", width=18)
+        self.upload_cntr = SlotCounter(self.control_btns_frm)
 
-        self.terminal.configure(state="disabled", yscrollcommand=self.scrollbar.set)
-        self.terminal.tag_configure("normal", foreground="black")
-        self.terminal.tag_configure("error", foreground="red")
-        self.scrollbar.configure(command=self.terminal.yview)
+        self.play_btn.pack(side="left", padx=5)
+        self.stop_btn.pack(side="left", padx=5)
+        self.prog_cntr.pack(side="left", padx=5)
+        self.line_lbl.pack(side="left", padx=5)
 
-        self.master.bind("<Configure>", self._resize_widgets)
+        self.upload_btn.pack(side="left", padx=5)
+        self.file_selction_btn.pack(side="top", anchor="center", padx=5)
+        self.status_file_lbl.pack(side="bottom", anchor="center", padx=5)
+        self.file_selction_frm.pack(side="left", padx=5)
+        self.upload_cntr.pack(side="left", padx=5)
 
-        self.play_btn.place(x=0, y=5)
-        self.stop_btn.place(x=60, y=5)
-        self.prog_cntr.place(x=120, y=5, width=55, height=50)
-        self.line_lbl.place(x=185, y=5)
-
-        self.upload_btn.place(x=205, y=5)
-        self.upload_cntr.place(x=400, y=5, width=55, height=50)
-        self.file_selction_btn.place(x=265, y=5, width=125, height=25)
-        self.status_file_lbl.place(width=125, height=25, x=265, y=30)
+        # Pack the frames
+        self.control_btns_frm.pack(anchor="w")
+        self.terminal_frm.pack(fill="both", expand=True)
         
-    def _resize_widgets(self, event):
-        window_width = self.master.winfo_width()
-        window_height = self.master.winfo_height()
-
-        scrollbar_x = window_width-16
-        terminal_width = window_width-16
-        widgets_height = window_height-80
-
-        self.terminal.place(width=terminal_width, height=widgets_height, x=0, y=60)
-        self.scrollbar.place(width=16, height=widgets_height, x=scrollbar_x, y=60)
-
-        self.hub_status.place(x=0, y=window_height-20)
-            
     def _choose_file(self):
         file = tkf.askopenfile(filetypes=[("Python file", "*.py")])
         if file is not None:
@@ -117,8 +157,8 @@ class Terminal(tk.Frame):
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
     
     def write(self, text, type:str):
-        self.terminal.configure(state="normal")
-        self.terminal.insert("end", str(text)+"\n", type)
-        self.terminal.see("end")
-        self.terminal.configure(state="disabled")
-        self.terminal.update()
+        self.terminal_txt.configure(state="normal")
+        self.terminal_txt.insert("end", str(text)+"\n", type)
+        self.terminal_txt.see("end")
+        self.terminal_txt.configure(state="disabled")
+        self.terminal_txt.update()

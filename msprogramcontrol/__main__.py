@@ -15,15 +15,11 @@ from .terminal_gui import Terminal
 
 
 class App:
-    def __init__(self):
-        self.root = tk.Tk()
-        self.terminal = Terminal(self.root, play=self.play_program, stop=self.stop_program, upload=self.upload_pogram)
-        
-        self.root.geometry("1000x500")
-        self.root.minsize(width=500, height=250)
-        self.root.title("Program control for Lego Robot Inventor/SPIKE Prime")
 
-        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+    def __init__(self):
+        self.terminal = Terminal(play=self.play_program, stop=self.stop_program, upload=self.upload_pogram)
+
+        self.terminal.protocol("WM_DELETE_WINDOW", self.on_close)
 
         self.rpc = None
         self.interface_run = True
@@ -31,18 +27,14 @@ class App:
 
         threading.Thread(target=self.search_hub, daemon=True).start()
 
-        self.terminal.pack(fill="both", expand=True)
-        self.root.mainloop()
+        self.terminal.mainloop()
 
     # Function to for search a hub and connect to it
     def search_hub(self):
         found = False
-        self.terminal.hub_status["text"] = "Searching for a hub..."
         while not found and self.interface_run:
             for device in serial.tools.list_ports.comports():
                 if device.vid == 0x0694 and device.pid in [0x0008, 0x0010]:
-                    self.terminal.hub_status["text"] = f"Hub found at {device.name}"
-
                     self.rpc = JSONRPC(device.name)
                     threading.Thread(target=self.receive_hub_output, daemon=True).start()
                     found = True
@@ -136,7 +128,7 @@ class App:
 
         if self.rpc:
             try:
-                threading.Thread(target=upload, daemon=True, name="UPLOAD-Thread").start()
+                threading.Thread(target=upload, daemon=True).start()
             except serial.SerialException:
                 self.rpc = None
                 tkm.showerror("Connection error", "The hub as been deconnected")
@@ -152,7 +144,7 @@ class App:
     def on_close(self):
         self.interface_run = False
         self.get_output = False
-        self.root.destroy()
+        self.terminal.destroy()
 
 if __name__ == "__main__":
     App()
