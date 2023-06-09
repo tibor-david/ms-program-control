@@ -100,6 +100,8 @@ class Terminal(tk.Tk):
 
         self.control_btns_frm = tk.Frame()
 
+        self.hub_status_frm = tk.Frame()
+
         # Terminal frame
         self.terminal_scrllbr = tk.Scrollbar(self.terminal_frm)
         self.terminal_txt = tk.Text(self.terminal_frm)
@@ -142,9 +144,18 @@ class Terminal(tk.Tk):
         self.file_selction_frm.pack(side="left", padx=5)
         self.upload_cntr.pack(side="left", padx=5)
 
+        # Hub status frame
+        self.green_dot_img = tk.PhotoImage(file=self._resource_path("assets/green_dot.png"))
+        self.red_dot_img = tk.PhotoImage(file=self._resource_path("assets/red_dot.png"))
+
+        self.hub_state_lbl = tk.Label(self.hub_status_frm)     
+        self.hub_version_lbl = tk.Label(self.hub_status_frm, bd=0)
+        self.hub_battery = Battery(self.hub_status_frm)
+
         # Pack the frames
         self.control_btns_frm.pack(anchor="w")
         self.terminal_frm.pack(fill="both", expand=True)
+        self.hub_status_frm.pack(anchor="w")
         
     def _choose_file(self):
         file = tkf.askopenfile(filetypes=[("Python file", "*.py")])
@@ -162,3 +173,33 @@ class Terminal(tk.Tk):
         self.terminal_txt.see("end")
         self.terminal_txt.configure(state="disabled")
         self.terminal_txt.update()
+
+    def set_hub_state(self, hubstate:str, version: str=None):
+        
+        def hide_all_widgets():
+            for widget in self.hub_status_frm.winfo_children():
+                widget.pack_forget()
+        
+        if hubstate == "connected":
+            if version is None:
+                raise ValueError("You must provide a version")
+            
+            self.hub_state_lbl.configure(image=self.green_dot_img)
+            self.hub_battery.set_percent(100)
+            self.hub_version_lbl.configure(text=version)
+
+            hide_all_widgets()
+
+            self.hub_state_lbl.pack(side="left")
+            self.hub_version_lbl.pack(side="left", padx=2)
+            self.hub_battery.pack(side="left", padx=2)
+
+        elif hubstate == "disconnected":
+            if version is not None:
+                raise ValueError("You cannot provide a version when the hub is disconnected")
+            
+            self.hub_state_lbl.configure(image=self.red_dot_img)
+
+            hide_all_widgets()
+
+            self.hub_state_lbl.pack(side="left")
