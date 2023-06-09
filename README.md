@@ -15,10 +15,10 @@ Module Configuration
 
 3. After that, a "dist" folder and another "programcontrol.egg-info" folder will be created. Ignore the "programcontrol.egg-info" file and go into the "dist" folder.
 
-4. In this folder, two files have been created: "programcontrol-x.x.x-py3-none-any.whl" and "programcontrol-x.x.x.tar.gz". If you simply want to install it on your machine or in a virtual environment, choose the *.whl file. Now, copy the path of this file and simply execute the command `pip install <path to the file>/programcontrol-0.0.1-py3-none-any.whl` to install the module.
+4. In this folder, two files have been created: "programcontrol-x.y.z-py3-none-any.whl" and "programcontrol-x.y.z.tar.gz". If you simply want to install it on your machine or in a virtual environment, choose the *.whl file. Now, copy the path of this file and simply execute the command `pip install <path to the file>/programcontrol-x.y.z-py3-none-any.whl` to install the module.
 
 ### Downloading the Module from GitHub
-If you don't want to bother building the module, you can simply download the "msprogramcontrol-x.x.x.zip" file from the "Releases" section of the GitHub repository. Then, follow the last step for installation.
+If you don't want to bother building the module, you can simply download the "msprogramcontrol-x.y.z.zip" file from the "Releases" section of the GitHub repository. Then, follow the last step for installation.
 
 Usage
 -----
