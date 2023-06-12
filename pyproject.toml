@@ -1,3 +1,6 @@
+[project.urls]
+repository = "https://github.com/tibor-david/ms-program-control"
+
 [project]
 name = "msprogramcontrol"
 version = "1.1.0"
@@ -5,10 +8,11 @@ description = "GUI interface for control and upload programs to the Lego Robot I
 readme = "README.md"
 license = { file = "LICENSE.txt" }
 authors = [
-    { name = "Tibor David" },
+    { name = "Tibor David"},
 ]
-
-# Exemple de dépendances
+maintainers = [
+  {name = "Tibor David"},
+]
 dependencies = [
     "pyserial",
 ]
