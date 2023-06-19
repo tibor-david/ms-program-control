@@ -39,7 +39,7 @@ class App:
                     firmware_version, runtime_version = self.get_hub_version()
                     self.terminal.set_hub_state(hubstate="connected", version=" / ".join([firmware_version, runtime_version]))
 
-                    #threading.Thread(target=self.receive_hub_output, daemon=True).start()
+                    threading.Thread(target=self.receive_hub_output, daemon=True).start()
                     found = True
             time.sleep(0.5)
     
