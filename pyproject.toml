@@ -3,7 +3,7 @@ repository = "https://github.com/tibor-david/ms-program-control"
 
 [project]
 name = "msprogramcontrol"
-version = "1.1.0"
+version = "1.2.0"
 description = "GUI interface for control and upload programs to the Lego Robot Inventor (51515) hub and the SPIKE Prime (45678) hub."
 readme = "README.md"
 license = { file = "LICENSE.txt" }

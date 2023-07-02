@@ -11,7 +11,7 @@ import time
 import tomli
 import tkinter.messagebox as tkm
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 from .jsonrpc import JSONRPC
 from .terminal_gui import Terminal
