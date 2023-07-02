@@ -15,6 +15,9 @@ maintainers = [
 ]
 dependencies = [
     "pyserial",
+    "tomli",
+    "requests",
+    "packaging"
 ]
 
 [tool.setuptools.package-data]

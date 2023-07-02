@@ -1,12 +1,17 @@
 import base64
 import os
+from packaging import version
 import random
+import requests
 import serial
 import serial.tools.list_ports
 import string
 import threading
 import time
+import tomli
 import tkinter.messagebox as tkm
+
+VERSION = "1.1.0"
 
 from .jsonrpc import JSONRPC
 from .terminal_gui import Terminal
@@ -22,10 +27,11 @@ class App:
         self.rpc = None
         self.interface_run = True
         self.get_output = True
-
+        
         self.terminal.set_hub_state("disconnected")
         threading.Thread(target=self.search_hub, daemon=True).start()
 
+        self.terminal.after(10, self.check_version)
         self.terminal.mainloop()
 
     # Function to for search a hub and connect to it
@@ -170,6 +176,16 @@ class App:
         runtime_version =  ".".join(str(nb) for nb in hub_info["runtime"]["version"])
 
         return firmware_version, runtime_version
+
+    # This function checks if a new version is available, and if one is found, a pop-up window will appear.
+    def check_version(self):
+        try:
+            toml_file = tomli.loads(requests.get("https://raw.githubusercontent.com/tibor-david/ms-program-control/master/pyproject.toml").text)
+
+            if version.parse(toml_file["project"]["version"]) > version.parse(VERSION):
+                tkm.showinfo("New version", "A new version of the module is available !")
+        except requests.exceptions.ConnectionError:
+            pass
 
     # Window closure
     def on_close(self):
