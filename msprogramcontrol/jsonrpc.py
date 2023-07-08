@@ -10,7 +10,7 @@ class JSONRPC:
         self.ser = serial.Serial(port, baudrate=115200)
 
         if debug:
-            logging.basicConfig(filename="./ms_jsonrpc.log", level=logging.DEBUG)
+            logging.basicConfig(level=logging.DEBUG)
 
     def receive_message(self):
         receive_buf = bytearray()
@@ -43,4 +43,4 @@ class JSONRPC:
                     error =json.loads(base64.b64decode(message["e"]).decode("utf-8"))
                     raise ConnectionError(error)
                 return message["r"]
-            logging.debug(f"While waiting fro response {message}")
+            logging.debug(f"While waiting for response {message}")

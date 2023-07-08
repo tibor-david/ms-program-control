@@ -1,4 +1,6 @@
 import base64
+import io
+import mpy_cross_v5
 import os
 from packaging import version
 import random
@@ -6,16 +8,17 @@ import requests
 import serial
 import serial.tools.list_ports
 import string
+import textwrap
 import threading
 import time
 import tomli
 import tkinter.messagebox as tkm
 
-VERSION = "1.2.0"
-
 from .jsonrpc import JSONRPC
 from .terminal_gui import Terminal
 
+
+VERSION = "1.2.0"
 
 class App:
 
@@ -110,14 +113,14 @@ class App:
             tkm.showerror("Connection error", "You must first connect a hub")
 
     def get_hub_info(self):
-        return self.rpc.send_message({'m':"get_hub_info", 'p': {}, 'i': self.random_id()})
+        return self.rpc.send_message({"m":"get_hub_info", "p": {}, "i": self.random_id()})
     
-    def start_write_program(self, name, size, slot, created, modified):
-        meta = {'created': created, 'modified': modified, 'name': str(base64.b64encode(name.encode()), "utf-8"), 'type': 'python', 'project_id': self.random_id(12)}
-        return self.rpc.send_message({'m':'start_write_program', 'p': {'slotid':slot, 'size': size, 'meta': meta}, 'i': self.random_id()})
+    def start_write_program(self, name, size, slot, created, modified, file_name):
+        meta = {"created": created, "modified": modified, "name": str(base64.b64encode(name.encode()), "utf-8"), "type": "python", "project_id": self.random_id(12)}
+        return self.rpc.send_message({"m":"start_write_program", "p": {"slotid":slot, "size": size, "meta": meta, "filename":file_name}, "i": self.random_id()})
     
     def write_package(self, data, transfer_id):
-        return self.rpc.send_message({'m':'write_package', 'p': {'data': str(base64.b64encode(data), 'utf-8'), 'transferid': transfer_id}, 'i': self.random_id()})
+        return self.rpc.send_message({"m":"write_package", "p": {"data": str(base64.b64encode(data), "utf-8"), "transferid": transfer_id}, "i": self.random_id()})
     
     def upload_pogram(self):
         def upload():
@@ -125,24 +128,54 @@ class App:
                 if self.terminal.upload_file:
                     self.get_output = False
                     time.sleep(0.1)
-                    file_path = self.terminal.upload_file
-                    with open(file_path, "rb") as file:
 
-                        size = os.path.getsize(file_path)
-                        actual_time = int(time.time()*1000)
-                        slot = int(self.terminal.upload_cntr.get_value())
-                        prj_name = os.path.splitext(os.path.basename(file_path))[0]
-                        
-                        prog_start = self.start_write_program(prj_name, size, slot, actual_time, actual_time)
+                    file = self.terminal.upload_file
+                    with io.StringIO() as python_file:
+                        print_override = textwrap.dedent("""\
+                            from util.print_override import spikeprint
+                            print = spikeprint
+                        """)
 
-                        blocksize = prog_start["blocksize"]
-                        transferid = prog_start["transferid"]
+                        python_file.write(print_override)
+                        python_file.write(open(file, "r").read())
+                        python_file.seek(0)
 
-                        data = file.read(blocksize)
+                        proc, mpy = mpy_cross_v5.mpy_cross_compile("__init__.py", python_file.read())
 
-                        while data:
-                            self.write_package(data, transferid)
-                            data = file.read(blocksize)
+                        if proc.returncode == 0:
+                            with io.BytesIO() as mpy_file:
+                                mpy_file.write(mpy)
+                                mpy_file.seek(0)
+
+                                size = mpy_file.getbuffer().nbytes
+                                actual_time = int(time.time()*1000)
+                                slot = int(self.terminal.upload_cntr.get_value())
+                                prj_name = os.path.splitext(os.path.basename(file))[0]
+
+                                prog_start = self.start_write_program(prj_name, size, slot, actual_time, actual_time, "__init__.mpy")
+                                blocksize = prog_start["blocksize"]
+                                transferid = prog_start["transferid"]
+
+                                data = mpy_file.read(blocksize)
+                                while data:
+                                    self.write_package(data, transferid)
+                                    data = mpy_file.read(blocksize)
+                        else:
+                            with open(file, "rb") as f:
+
+                                size = os.path.getsize(file)
+                                actual_time = int(time.time()*1000)
+                                slot = int(self.terminal.upload_cntr.get_value())
+                                prj_name = os.path.splitext(os.path.basename(file))[0]
+                                
+                                prog_start = self.start_write_program(prj_name, size, slot, actual_time, actual_time, "__init__.py")
+                                blocksize = prog_start["blocksize"]
+                                transferid = prog_start["transferid"]
+
+                                data = f.read(blocksize)
+                                while data:
+                                    self.write_package(data, transferid)
+                                    data = f.read(blocksize)
                     tkm.showinfo("Program uploaded", "The program has been successfully uploaded")
 
                     self.rpc.ser.reset_input_buffer()
@@ -150,7 +183,6 @@ class App:
                     threading.Thread(target=self.receive_hub_output, daemon=True).start()
                 else:
                     tkm.showerror("File error", "You must choose a file")
-                    
             except serial.SerialException:
                 self.rpc = None
 
@@ -158,7 +190,6 @@ class App:
                 tkm.showerror("Connection error", "The hub as been deconnected")
 
                 threading.Thread(target=self.search_hub, daemon=True).start()
-
         if self.rpc:
             threading.Thread(target=upload, daemon=True).start()
         else:

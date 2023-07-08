@@ -17,7 +17,8 @@ dependencies = [
     "pyserial",
     "tomli",
     "requests",
-    "packaging"
+    "packaging",
+    "mpy_cross_v5"
 ]
 
 [tool.setuptools.package-data]
