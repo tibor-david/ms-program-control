@@ -1,29 +1,24 @@
-[project.urls]
-repository = "https://github.com/tibor-david/ms-program-control"
-
 [project]
 name = "msprogramcontrol"
 version = "1.2.0"
 description = "GUI interface for control and upload programs to the Lego Robot Inventor (51515) hub and the SPIKE Prime (45678) hub."
-readme = "README.md"
-license = { file = "LICENSE.txt" }
 authors = [
-    { name = "Tibor David"},
-]
-maintainers = [
-  {name = "Tibor David"},
+    {name = "Tibor", email = ""},
 ]
 dependencies = [
-    "pyserial",
-    "tomli",
-    "requests",
-    "packaging",
-    "mpy_cross_v5"
+    "pyserial>=3.5",
+    "tomli>=2.0.1",
+    "requests>=2.31.0",
+    "packaging>=23.1",
+    "mpy-cross-v5>=1.0.1",
 ]
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
 
 [tool.setuptools.package-data]
 "msprogramcontrol.assets" = ["*.png"]
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"

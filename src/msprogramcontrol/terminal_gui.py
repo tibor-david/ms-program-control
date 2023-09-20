@@ -1,6 +1,7 @@
 import os
 import tkinter as tk
 import tkinter.filedialog as tkf
+from typing import Callable
 
 
 class SlotCounter(tk.Frame):
@@ -83,6 +84,7 @@ class Battery(tk.Frame):
         if 0 <= percent <= 100:
             if percent != 0:
                 size = percent * 24 / 100
+                color = "red"
 
                 if percent <= 20:
                     color = "red"
@@ -105,7 +107,7 @@ class Battery(tk.Frame):
 
 
 class Terminal(tk.Tk):
-    def __init__(self, play=None, stop=None, upload=None):
+    def __init__(self, play: Callable, stop: Callable, upload: Callable):
         super().__init__()
 
         self.upload_file = None
@@ -215,13 +217,13 @@ class Terminal(tk.Tk):
         self.terminal_txt.configure(state="disabled")
         self.terminal_txt.update()
 
-    def set_hub_state(self, hubstate: str, version: str = None):
+    def set_hub_state(self, hubstate: str, version: str = "N/A"):
         def hide_all_widgets():
             for widget in self.hub_status_frm.winfo_children():
                 widget.pack_forget()
 
         if hubstate == "connected":
-            if version is None:
+            if version == "N/A":
                 raise ValueError("You must provide a version")
 
             self.hub_state_lbl.configure(image=self.green_dot_img)
@@ -235,11 +237,6 @@ class Terminal(tk.Tk):
             self.hub_battery.pack(side="left", padx=2)
 
         elif hubstate == "disconnected":
-            if version is not None:
-                raise ValueError(
-                    "You cannot provide a version when the hub is disconnected"
-                )
-
             self.hub_state_lbl.configure(image=self.red_dot_img)
 
             hide_all_widgets()
