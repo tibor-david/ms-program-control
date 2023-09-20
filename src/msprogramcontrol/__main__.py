@@ -1,314 +1,255 @@
-import base64
-import io
-import mpy_cross_v5
-import os
-from packaging import version
-import random
-import requests
-import serial
-import serial.tools.list_ports
-import string
-import textwrap
 import threading
-import time
-import tomli
+import serial
+import tkinter as tk
 import tkinter.messagebox as tkm
+import base64
+import mpy_cross_v5
+import functools
+import textwrap
+import time
+import serial.tools.list_ports
+import threading
+from io import StringIO, BytesIO
+from typing import Callable
+import queue
+from async_tkinter_loop.mixins import AsyncTk
+from async_tkinter_loop import async_handler
 
+from .interface import ProgramControl, Terminal, HubStatus
 from .jsonrpc import JSONRPC
-from .terminal_gui import Terminal
 
 
-VERSION = "1.2.0"
+class App(tk.Tk, AsyncTk):
+    """GUI that allows you to control and upload programs to
+    the Lego Robot Inventor (51515) hub and the SPIKE Prime (45678) hub.
+    """
 
-
-class App:
     def __init__(self):
-        self.terminal = Terminal(
-            play=self.play_program, stop=self.stop_program, upload=self.upload_pogram
+        super().__init__()
+
+        self._ser = serial.Serial()
+        self._rpc = JSONRPC()
+        self._interface_queue = queue.Queue()
+
+        # Configure the JSONRPC
+        self._rpc.configure_callbacks(
+            msg_filter=self._filter_messages,
+            serial_dscnnctd=lambda: self._queue_add_func(self._hub_disconnected),
         )
 
-        self.terminal.protocol("WM_DELETE_WINDOW", self.on_close)
+        # Configure the window
+        self.title("Program control for Lego Robot Inventor/SPIKE Prime")
+        self.geometry("1000x500")
+        self.minsize(600, 300)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.after(0, self._update_interface)
 
-        self.rpc = None
-        self.interface_run = True
-        self.get_output = True
+        # Create the necessary widgets and configure it
+        self._terminal = Terminal(self)
+        self._hub_status = HubStatus(self)
+        self._program_control = ProgramControl(self)
 
-        self.terminal.set_hub_state("disconnected")
-        threading.Thread(target=self.search_hub, daemon=True).start()
+        self._hub_status.set_hub_state("disconnected")
+        self._program_control.disable_all()
 
-        self.terminal.after(10, self.check_version)
-        self.terminal.mainloop()
+        self._program_control.play.configure(command=self._play)
+        self._program_control.stop.configure(command=self._stop)
+        self._program_control.upload.configure(command=self._upload)
 
-    # Function to for search a hub and connect to it
-    def search_hub(self):
-        found = False
-        while not found and self.interface_run:
+        # Pack the widgets and start searching the hub
+        self._program_control.pack(side="top", anchor="nw")
+        self._hub_status.pack(side="bottom", anchor="nw")
+        self._terminal.pack(fill="both", expand=True)
+
+        threading.Thread(target=self._search_hub, daemon=True).start()
+
+    def _update_interface(self):
+        """This function modifies the interface based on the elements added to the queue."""
+
+        while self._interface_queue.qsize():
+            func: Callable = self._interface_queue.get()
+            func()
+        self.after_id = self.after(10, self._update_interface)
+
+    def _filter_messages(self, jsonrpc_response: dict):
+        """This function is used by the 'JSONRPC' class to filter the various received messages that are not responses.
+
+        Args:
+            jsonrpc_response (dict): The JSONRPC message provided by the 'JSONRPC' class.
+        """
+
+        # Check if it's a dictionary (JSON-RPC message). If not, the most likely scenario
+        # is that it's a MicroPython string,an integer, or a float.
+        # If it's none of these, it's a truncated JSON-RPC message.
+        if not isinstance(jsonrpc_response, dict):
+            self._queue_add_func(self._terminal.log, str(jsonrpc_response), "log")
+
+        elif "m" in jsonrpc_response:
+            response_id: str | None = None
+            method = jsonrpc_response["m"]
+            params = jsonrpc_response["p"]
+
+            if "i" in jsonrpc_response:
+                response_id = jsonrpc_response["i"]
+
+            if method == "userProgram.print":
+                value = str(base64.b64decode(params["value"]), "utf-8")
+                self._queue_add_func(self._terminal.log, value, "log")
+
+                if response_id:
+                    self._queue_add_func(
+                        async_handler(self._rpc.send_confirmation, response_id)
+                    )
+
+            elif method == "user_program_error":
+                value = str(base64.b64decode(params[3]), "utf-8")
+                self._queue_add_func(self._terminal.log, value, "error")
+
+            elif method == "user_runtime_error":
+                value = str(base64.b64decode(params[3]), "utf-8")
+                self._queue_add_func(self._terminal.log, value, "error")
+
+            elif method == 2:
+                self._queue_add_func(self._hub_status.battery.set_percent, params[1])
+
+    def _queue_add_func(self, func: Callable, *args, **kwargs) -> None:
+        """Adds a function to the queue, primarily for making interface modifications from another thread.
+
+        Args:
+            func (Callable): The function to be called, along with its potential args or kwargs.
+        """
+
+        def _wrapper():
+            func(*args, **kwargs)
+
+        self._interface_queue.put(_wrapper)
+
+    def _connect_to_hub(self, port: str):
+        """Function called by the 'search_hub' function when it finds a hub to connect to
+        and start receiving data.
+
+        Args:
+            port (str): The port to which the hub is connected.
+        """
+
+        self._ser = serial.Serial(port)
+        self._rpc.connect(self._ser)
+        threading.Thread(target=self._rpc.receive_forever, daemon=True).start()
+
+        # Configure the interface
+        self._set_hub_version()
+        self._program_control.active_all()
+
+    def _hub_disconnected(self):
+        """Function called by the 'JSONRPC' class when it detects that the hub has been disconnected."""
+
+        self._hub_status.set_hub_state("disconnected")
+        self._program_control.disable_all()
+
+        threading.Thread(target=self._search_hub, daemon=True).start()
+
+    def _on_close(self):
+        for after_id in self.tk.eval("after info").split():
+            self.after_cancel(after_id)
+        self.destroy()
+
+    def _search_hub(self):
+        """Function to search for a Mindstorms or SPIKE Prime hub based on their vid and pid."""
+
+        found = True
+        while found:
             for device in serial.tools.list_ports.comports():
+                time.sleep(0.5)
                 if device.vid == 0x0694 and device.pid in [0x0008, 0x0010]:
-                    self.rpc = JSONRPC(device.name)
+                    self._queue_add_func(self._connect_to_hub, device.device)
+                    found = False
 
-                    firmware_version, runtime_version = self.get_hub_version()
-                    self.terminal.set_hub_state(
-                        hubstate="connected",
-                        version=" / ".join([firmware_version, runtime_version]),
-                    )
+    @async_handler
+    async def _play(self):
+        self._terminal.clear()
 
-                    threading.Thread(
-                        target=self.receive_hub_output, daemon=True
-                    ).start()
-                    found = True
-            time.sleep(0.5)
+        slot = self._program_control.program_chooser.slot
+        await self._rpc.play_program(slot)
 
-    # Function for receive the hub output (programs prints, errors and the battery state of the hub)
-    def receive_hub_output(self):
-        while self.get_output and self.interface_run:
-            try:
-                msg = self.rpc.receive_message()
-                if isinstance(msg, dict):
-                    if "m" in msg.keys():
-                        if msg["m"] == "userProgram.print":
-                            self.terminal.write(
-                                base64.b64decode(msg["p"]["value"])
-                                .decode()
-                                .rstrip("\n"),
-                                type="normal",
-                            )
-                            self.rpc.send_message({"i": msg["i"]}, False)
+    @async_handler
+    async def _stop(self):
+        await self._rpc.stop_program()
 
-                        elif msg["m"] == "user_program_error":
-                            self.terminal.write(
-                                base64.b64decode(msg["p"][3]).decode().rstrip("\n"),
-                                type="error",
-                            )
+    @async_handler
+    async def _set_hub_version(self):
+        response = await self._rpc.get_hub_info()
 
-                        elif msg["m"] == "user_runtime_error":
-                            self.terminal.write(
-                                base64.b64decode(msg["p"][3])
-                                .decode("utf-8")
-                                .rstrip("\n")
-                            )
+        runtime_version = ".".join(str(nb) for nb in response["runtime"]["version"])
+        firmware_version = ".".join(str(nb) for nb in response["firmware"]["version"])
 
-                        elif msg["m"] == 2:
-                            self.terminal.hub_battery.set_percent(msg["p"][1])
-                else:
-                    self.terminal.write(str(msg), type="normal")
-            except serial.SerialException:
-                self.rpc = None
+        self._hub_status.set_hub_state(
+            "connected", runtime=runtime_version, firmware=firmware_version
+        )
 
-                self.terminal.set_hub_state("disconnected")
-                tkm.showerror("Connection error", "The hub as been deconnected")
+    @async_handler
+    async def _upload(self):
+        # Adding these two lines at the beginning of the file allows
+        # replacing standard prints with Lego's JSONRPC.
+        print_override = textwrap.dedent(
+            """\
+            from util.print_override import spikeprint
+            print = spikeprint
+        """
+        )
 
-                threading.Thread(target=self.search_hub, daemon=True).start()
-                break
+        file = self._program_control.upload_file
+        if file:
+            self._program_control.upload.configure(state="disabled")
+            with open(file, "rb") as python_file:
+                raw_data = python_file.read()
 
-    # Rpc methods
-    def play_program(self):
-        if self.rpc:
-            try:
-                program_slot = int(self.terminal.prog_cntr.get_value())
-                self.rpc.send_message(
-                    {
-                        "m": "program_execute",
-                        "p": {"slotid": program_slot},
-                        "i": self.random_id(),
-                    },
-                    get_response=False,
+            with StringIO() as python_data:
+                python_data.write(print_override)
+                python_data.write(raw_data.decode("utf-8"))
+                python_data.seek(0)
+
+                proc, mpy = mpy_cross_v5.mpy_cross_compile(
+                    "__init__.py", python_data.read()
                 )
-            except serial.SerialException:
-                self.rpc = None
 
-                self.terminal.set_hub_state("disconnected")
-                tkm.showerror("Connection error", "The hub as been deconnected")
+            # Get all information for the transfer requests
+            actual_time = int(time.time() * 1000)
+            slot = self._program_control.upload_chooser.slot
+            project_name = file.stem
+            size = len(mpy) if proc.returncode == 0 and mpy else len(raw_data)
+            file_name = "__init__.mpy" if proc.returncode == 0 else "__init__.py"
 
-                threading.Thread(target=self.search_hub, daemon=True).start()
-        else:
-            tkm.showerror("Connection error", "You must first connect a hub")
+            prog_start = await self._rpc.start_write_program(
+                project_name,
+                size,
+                slot,
+                actual_time,
+                actual_time,
+                file_name,
+            )
+            blocksize = prog_start["blocksize"]
+            transferid = prog_start["transferid"]
 
-    def stop_program(self):
-        if self.rpc:
-            try:
-                self.rpc.send_message(
-                    {"m": "program_terminate", "p": {}, "i": self.random_id()},
-                    get_response=False,
-                )
-            except serial.SerialException:
-                self.rpc = None
+            # Write the data to the hub
+            data_to_write = mpy if proc.returncode == 0 and mpy else raw_data
 
-                self.terminal.set_hub_state("disconnected")
-                tkm.showerror("Connection error", "The hub as been deconnected")
+            with BytesIO(data_to_write) as byte_stream:
+                for block in iter(functools.partial(byte_stream.read, blocksize), b""):
+                    await self._rpc.write_package(block, transfer_id=transferid)
 
-                threading.Thread(target=self.search_hub, daemon=True).start()
-        else:
-            tkm.showerror("Connection error", "You must first connect a hub")
-
-    def get_hub_info(self):
-        return self.rpc.send_message(
-            {"m": "get_hub_info", "p": {}, "i": self.random_id()}
-        )
-
-    def start_write_program(self, name, size, slot, created, modified, file_name):
-        meta = {
-            "created": created,
-            "modified": modified,
-            "name": str(base64.b64encode(name.encode()), "utf-8"),
-            "type": "python",
-            "project_id": self.random_id(12),
-        }
-        return self.rpc.send_message(
-            {
-                "m": "start_write_program",
-                "p": {
-                    "slotid": slot,
-                    "size": size,
-                    "meta": meta,
-                    "filename": file_name,
-                },
-                "i": self.random_id(),
-            }
-        )
-
-    def write_package(self, data, transfer_id):
-        return self.rpc.send_message(
-            {
-                "m": "write_package",
-                "p": {
-                    "data": str(base64.b64encode(data), "utf-8"),
-                    "transferid": transfer_id,
-                },
-                "i": self.random_id(),
-            }
-        )
-
-    def upload_pogram(self):
-        def upload():
-            try:
-                if self.terminal.upload_file:
-                    self.get_output = False
-                    time.sleep(0.1)
-
-                    file = self.terminal.upload_file
-                    with io.StringIO() as python_file:
-                        print_override = textwrap.dedent(
-                            """\
-                            from util.print_override import spikeprint
-                            print = spikeprint
-                        """
-                        )
-
-                        python_file.write(print_override)
-                        python_file.write(open(file, "r").read())
-                        python_file.seek(0)
-
-                        proc, mpy = mpy_cross_v5.mpy_cross_compile(
-                            "__init__.py", python_file.read()
-                        )
-
-                        if proc.returncode == 0:
-                            with io.BytesIO() as mpy_file:
-                                mpy_file.write(mpy)
-                                mpy_file.seek(0)
-
-                                size = mpy_file.getbuffer().nbytes
-                                actual_time = int(time.time() * 1000)
-                                slot = int(self.terminal.upload_cntr.get_value())
-                                prj_name = os.path.splitext(os.path.basename(file))[0]
-
-                                prog_start = self.start_write_program(
-                                    prj_name,
-                                    size,
-                                    slot,
-                                    actual_time,
-                                    actual_time,
-                                    "__init__.mpy",
-                                )
-                                blocksize = prog_start["blocksize"]
-                                transferid = prog_start["transferid"]
-
-                                data = mpy_file.read(blocksize)
-                                while data:
-                                    self.write_package(data, transferid)
-                                    data = mpy_file.read(blocksize)
-                        else:
-                            with open(file, "rb") as f:
-                                size = os.path.getsize(file)
-                                actual_time = int(time.time() * 1000)
-                                slot = int(self.terminal.upload_cntr.get_value())
-                                prj_name = os.path.splitext(os.path.basename(file))[0]
-
-                                prog_start = self.start_write_program(
-                                    prj_name,
-                                    size,
-                                    slot,
-                                    actual_time,
-                                    actual_time,
-                                    "__init__.py",
-                                )
-                                blocksize = prog_start["blocksize"]
-                                transferid = prog_start["transferid"]
-
-                                data = f.read(blocksize)
-                                while data:
-                                    self.write_package(data, transferid)
-                                    data = f.read(blocksize)
-                    tkm.showinfo(
-                        "Program uploaded", "The program has been successfully uploaded"
-                    )
-
-                    self.rpc.ser.reset_input_buffer()
-                    self.get_output = True
-                    threading.Thread(
-                        target=self.receive_hub_output, daemon=True
-                    ).start()
-                else:
-                    tkm.showerror("File error", "You must choose a file")
-            except serial.SerialException:
-                self.rpc = None
-
-                self.terminal.set_hub_state("disconnected")
-                tkm.showerror("Connection error", "The hub as been deconnected")
-
-                threading.Thread(target=self.search_hub, daemon=True).start()
-
-        if self.rpc:
-            threading.Thread(target=upload, daemon=True).start()
-        else:
-            tkm.showerror("Connection error", "You must first connect a hub")
-
-    # Function for generating random names for JSON-RPC messages and program IDs
-    def random_id(self, lenght: int = 4):
-        return "".join(random.sample((string.ascii_letters + string.digits), lenght))
-
-    # Function to get firmware and runtime version
-    def get_hub_version(self):
-        hub_info = self.get_hub_info()
-
-        firmware_version = ".".join(str(nb) for nb in hub_info["firmware"]["version"])
-        runtime_version = ".".join(str(nb) for nb in hub_info["runtime"]["version"])
-
-        return firmware_version, runtime_version
-
-    # This function checks if a new version is available, and if one is found, a pop-up window will appear.
-    def check_version(self):
-        try:
-            toml_file = tomli.loads(
-                requests.get(
-                    "https://raw.githubusercontent.com/tibor-david/ms-program-control/master/pyproject.toml"
-                ).text
+            self._program_control.upload.configure(state="active")
+            tkm.showinfo(
+                "Program uploaded", "The program has been successfully uploaded."
             )
 
-            if version.parse(toml_file["project"]["version"]) > version.parse(VERSION):
-                tkm.showinfo(
-                    "New version", "A new version of the module is available !"
-                )
-        except requests.exceptions.ConnectionError:
-            pass
+        else:
+            tkm.showerror("File error", "You must choose a file.")
 
-    # Window closure
-    def on_close(self):
-        self.interface_run = False
-        self.get_output = False
-        self.terminal.destroy()
+
+def main():
+    app = App()
+    app.async_mainloop()
 
 
 if __name__ == "__main__":
-    App()
+    main()

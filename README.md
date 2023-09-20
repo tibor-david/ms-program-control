@@ -35,5 +35,3 @@ This interface contains 3 buttons: a "Stop" button, a "Start" button, and an "Up
 
 ### The Terminal
 Under the program management buttons, there is a terminal where program messages and errors are displayed.
-
-Json-rpc code modified from https://github.com/nutki/spike-tools

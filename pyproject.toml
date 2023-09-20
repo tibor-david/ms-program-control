@@ -7,10 +7,8 @@ authors = [
 ]
 dependencies = [
     "pyserial>=3.5",
-    "tomli>=2.0.1",
-    "requests>=2.31.0",
-    "packaging>=23.1",
     "mpy-cross-v5>=1.0.1",
+    "async-tkinter-loop>=0.9.1",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
