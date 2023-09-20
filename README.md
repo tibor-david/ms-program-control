@@ -3,30 +3,36 @@ Program Control for Lego Mindstorms and Spike PRIME
 
 Presentation
 ------------
-This repository contains all the code necessary to run a graphical interface that allows controlling the programs present on the hub and downloading new ones. This module has been tested on Windows 11 with Python 3.9.7 and Ubuntu with Python 3.10.6.
+This repository contains all the code necessary to run a graphical interface that allows controlling the programs present on the hub and downloading new ones.
 
-Module Configuration
---------------------
+Installation
+------------
 
-### Building the Module
-1. Make sure you have installed the following dependencies on your machine: wheel, setuptools, and build. If not, on Debian/Ubuntu-based Linux systems, you can use your package manager: `apt install python3-build python3-setuptools python3-wheel`. For Windows, you can use pip directly and install these libraries at the user level: `py -m pip install --user --upgrade build pip setuptools wheel`.
+### There are two methods for installing the library:
 
-2. You can now run the command `pyproject-build` at the root of the repository.
+1. **Directly use pip**
 
-3. After that, a "dist" folder and another "programcontrol.egg-info" folder will be created. Ignore the "programcontrol.egg-info" file and go into the "dist" folder.
+   You can directly run the command: `pip install git+https://github.com/tibor-david/ms-program-control` without the need to clone the repository.
 
-4. In this folder, two files have been created: "programcontrol-x.y.z-py3-none-any.whl" and "programcontrol-x.y.z.tar.gz". If you simply want to install it on your machine or in a virtual environment, choose the *.whl file. Now, copy the path of this file and simply execute the command `pip install <path to the file>/programcontrol-x.y.z-py3-none-any.whl` to install the module.
+4. **Build the Library**
 
-### Downloading the Module from GitHub
-If you don't want to bother building the module, you can simply download the "msprogramcontrol-x.y.z.zip" file from the "Releases" section of the GitHub repository. Then, follow the last step for installation.
+   This method is more intricate. If you're new to Python, consider the first installation method instead.
+
+   1. Ensure that you have the necessary dependencies installed on your machine: wheel, setuptools, and build. On Debian/Ubuntu-based Linux systems, you can use your package manager: `apt install python3-build python3-setuptools python3-wheel`. On Windows, you can utilize pip directly: `py -m pip install --user --upgrade build pip setuptools wheel`.
+
+   2. Execute the command `pyproject-build` at the root of the repository.
+
+   3. This will generate a "dist" folder and a "tictactoe.egg-info" folder. Disregard the "tictactoe.egg-info" file and navigate into the "dist" folder.
+
+   4. Inside the "dist" folder, you'll find two files: "tictactoe-x.y.z-py3-none-any.whl" and "tictactoe-x.y.z.tar.gz". If you intend to install the library on your machine or within a virtual environment, select the *.whl file. Copy the file's path and use the command `pip install <path to the file>/tictactoe-x.y.z-py3-none-any.whl` for installation.
 
 Usage
 -----
 
-### Launching the Graphical Interface
-To use this module, write the following in a terminal: `python3 -m msprogramcontrol`(or `python` on Windows), and it will launch the graphical interface.
+### Launching the graphical interface
+To use this library, write the following in a terminal: `python3 -m msprogramcontrol`(or `python` on Windows), and it will launch the graphical interface.
 
-### Using the Module
+### Using the GUI
 This interface contains 3 buttons: a "Stop" button, a "Start" button, and an "Upload" button.
 
 * To stop or start a program, choose the slot to be stopped or started by selecting the desired slot using the leftmost program location display.
