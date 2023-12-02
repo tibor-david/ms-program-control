@@ -22,9 +22,9 @@ Installation
 
    2. Execute the command `pyproject-build` at the root of the repository.
 
-   3. This will generate a "dist" folder and a "tictactoe.egg-info" folder. Disregard the "tictactoe.egg-info" file and navigate into the "dist" folder.
+   3. This will generate a "dist" folder and a "msprogramcontrol.egg-info" folder. Disregard the "msprogramcontrol.egg-info" file and navigate into the "dist" folder.
 
-   4. Inside the "dist" folder, you'll find two files: "tictactoe-x.y.z-py3-none-any.whl" and "tictactoe-x.y.z.tar.gz". If you intend to install the library on your machine or within a virtual environment, select the *.whl file. Copy the file's path and use the command `pip install <path to the file>/tictactoe-x.y.z-py3-none-any.whl` for installation.
+   4. Inside the "dist" folder, you'll find two files: "msprogramcontrol-x.y.z-py3-none-any.whl" and "msprogramcontrol-x.y.z.tar.gz". If you intend to install the library on your machine or within a virtual environment, select the *.whl file. Copy the file's path and use the command `pip install <path to the file>/msprogramcontrol-x.y.z-py3-none-any.whl` for installation.
 
 Usage
 -----
