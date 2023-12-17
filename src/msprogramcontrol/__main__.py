@@ -1,6 +1,7 @@
 import threading
 import serial
-import tkinter as tk
+import _tkinter
+import customtkinter as ctk
 import tkinter.messagebox as tkm
 import base64
 import mpy_cross_v5
@@ -12,14 +13,14 @@ import threading
 from io import StringIO, BytesIO
 from typing import Callable
 import queue
-from async_tkinter_loop.mixins import AsyncTk
+from async_tkinter_loop.mixins import AsyncCTk
 from async_tkinter_loop import async_handler
 
-from .interface import ProgramControl, Terminal, HubStatus
+from .widgets import ProgramButtons, Terminal, HubStatus, Menu
 from .jsonrpc import JSONRPC
 
 
-class App(tk.Tk, AsyncTk):
+class App(ctk.CTk, AsyncCTk):
     """GUI that allows you to control and upload programs to
     the Lego Robot Inventor (51515) hub and the SPIKE Prime (45678) hub.
     """
@@ -31,7 +32,7 @@ class App(tk.Tk, AsyncTk):
         self._rpc = JSONRPC()
         self._interface_queue = queue.Queue()
 
-        # Configure the JSONRPC
+        # Configure the JSONRPCs
         self._rpc.configure_callbacks(
             msg_filter=self._filter_messages,
             serial_dscnnctd=lambda: self._queue_add_func(self._hub_disconnected),
@@ -41,23 +42,23 @@ class App(tk.Tk, AsyncTk):
         self.title("Program control for Lego Robot Inventor/SPIKE Prime")
         self.geometry("1000x500")
         self.minsize(600, 300)
-        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.configure(menu=Menu(self))
         self.after(0, self._update_interface)
 
         # Create the necessary widgets and configure it
         self._terminal = Terminal(self)
         self._hub_status = HubStatus(self)
-        self._program_control = ProgramControl(self)
+        self._program_buttons = ProgramButtons(self)
 
         self._hub_status.set_hub_state("disconnected")
-        self._program_control.disable_all()
+        self._program_buttons.disable_all()
 
-        self._program_control.play.configure(command=self._play)
-        self._program_control.stop.configure(command=self._stop)
-        self._program_control.upload.configure(command=self._upload)
+        self._program_buttons.play.configure(command=self._play)
+        self._program_buttons.stop.configure(command=self._stop)
+        self._program_buttons.upload.configure(command=self._upload)
 
         # Pack the widgets and start searching the hub
-        self._program_control.pack(side="top", anchor="nw")
+        self._program_buttons.pack(side="top", anchor="nw")
         self._hub_status.pack(side="bottom", anchor="nw")
         self._terminal.pack(fill="both", expand=True)
 
@@ -138,20 +139,15 @@ class App(tk.Tk, AsyncTk):
 
         # Configure the interface
         self._set_hub_version()
-        self._program_control.active_all()
+        self._program_buttons.active_all()
 
     def _hub_disconnected(self):
         """Function called by the 'JSONRPC' class when it detects that the hub has been disconnected."""
 
         self._hub_status.set_hub_state("disconnected")
-        self._program_control.disable_all()
+        self._program_buttons.disable_all()
 
         threading.Thread(target=self._search_hub, daemon=True).start()
-
-    def _on_close(self):
-        for after_id in self.tk.eval("after info").split():
-            self.after_cancel(after_id)
-        self.destroy()
 
     def _search_hub(self):
         """Function to search for a Mindstorms or SPIKE Prime hub based on their vid and pid."""
@@ -168,7 +164,7 @@ class App(tk.Tk, AsyncTk):
     async def _play(self):
         self._terminal.clear()
 
-        slot = self._program_control.program_chooser.slot
+        slot = self._program_buttons.program_chooser.slot
         await self._rpc.play_program(slot)
 
     @async_handler
@@ -197,9 +193,9 @@ class App(tk.Tk, AsyncTk):
         """
         )
 
-        file = self._program_control.upload_file
+        file = self._program_buttons.upload_file
         if file:
-            self._program_control.upload.configure(state="disabled")
+            self._program_buttons.upload.configure(state="disabled")
             with open(file, "rb") as python_file:
                 raw_data = python_file.read()
 
@@ -214,7 +210,7 @@ class App(tk.Tk, AsyncTk):
 
             # Get all information for the transfer requests
             actual_time = int(time.time() * 1000)
-            slot = self._program_control.upload_chooser.slot
+            slot = self._program_buttons.upload_chooser.slot
             project_name = file.stem
             size = len(mpy) if proc.returncode == 0 and mpy else len(raw_data)
             file_name = "__init__.mpy" if proc.returncode == 0 else "__init__.py"
@@ -237,7 +233,7 @@ class App(tk.Tk, AsyncTk):
                 for block in iter(functools.partial(byte_stream.read, blocksize), b""):
                     await self._rpc.write_package(block, transfer_id=transferid)
 
-            self._program_control.upload.configure(state="active")
+            self._program_buttons.upload.configure(state="active")
             tkm.showinfo(
                 "Program uploaded", "The program has been successfully uploaded."
             )
@@ -247,6 +243,10 @@ class App(tk.Tk, AsyncTk):
 
 
 def main():
+    ctk.set_default_color_theme(
+        "blue"
+    )  # Themes: "blue" (standard), "green", "dark-blue"
+
     app = App()
     app.async_mainloop()
 
